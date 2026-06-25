@@ -135,7 +135,7 @@
     function getLookupID() {
       try {
         // SKY Add-in passes constituent context via postMessage
-        // The envid property holds the RE LookupID
+        // The envid property holds the RE SYSID
         if (window.BBFF && window.BBFF.context) {
           return window.BBFF.context.envid;
         }
