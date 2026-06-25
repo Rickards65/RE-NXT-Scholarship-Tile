@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scholarships</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      color: #1a1a2e;
+      background: #ffffff;
+      padding: 12px 16px;
+    }
+
+    /* Header */
+    .tile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #003865;
+    }
+
+    .tile-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #003865;
+      letter-spacing: 0.01em;
+    }
+
+    .tile-badge {
+      font-size: 11px;
+      font-weight: 500;
+      color: #ffffff;
+      background: #003865;
+      border-radius: 10px;
+      padding: 2px 8px;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      background: #f4f6f9;
+    }
+
+    thead th {
+      font-size: 11px;
+      font-weight: 600;
+      color: #5a6a7e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 7px 8px;
+      text-align: left;
+      border-bottom: 1px solid #dde3ea;
+    }
+
+    thead th.right { text-align: right; }
+
+    tbody tr {
+      border-bottom: 1px solid #eef0f3;
+      transition: background 0.1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f8fafc; }
+
+    tbody td {
+      padding: 8px 8px;
+      vertical-align: top;
+      color: #1a1a2e;
+      line-height: 1.4;
+    }
+
+    tbody td.right {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: #1a6e3c;
+      font-weight: 500;
+    }
+
+    tbody td.muted {
+      color: #7a8898;
+      font-size: 12px;
+    }
+
+    /* States */
+    .state {
+      padding: 20px 0;
+      text-align: center;
+      color: #7a8898;
+      font-size: 13px;
+    }
+
+    .state.error { color: #c0392b; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #dde3ea;
+      border-top-color: #003865;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="tile-header">
+    <span class="tile-title">Scholarships</span>
+    <span class="tile-badge" id="rowCount" style="display:none"></span>
+  </div>
+
+  <div id="content">
+    <div class="state"><span class="spinner"></span>Loading…</div>
+  </div>
+
+  <script>
+    // ── Config ────────────────────────────────────────────────────────────────
+    const FLOW_URL = 'https://default0262e82232cc4173b32bdab3bcbb3c.84.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b21401d696eb4ce79f32bc6b8ba2497c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=odukJ7p5mi_5BDEg9mK3CACxxXM0XUf7YK0nb6QktCg';
+
+    // ── Get RE_LookupID from SKY Add-in context ───────────────────────────────
+    function getLookupID() {
+      try {
+        // SKY Add-in passes constituent context via postMessage
+        // The envid property holds the RE LookupID
+        if (window.BBFF && window.BBFF.context) {
+          return window.BBFF.context.envid;
+        }
+        // Fallback: read from URL param for local testing
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('envid')) return params.get('envid');
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // ── Render table ──────────────────────────────────────────────────────────
+    function renderTable(rows) {
+      const content = document.getElementById('content');
+      const badge   = document.getElementById('rowCount');
+
+      if (!rows || rows.length === 0) {
+        content.innerHTML = '<div class="state">No scholarship records found.</div>';
+        return;
+      }
+
+      badge.textContent = rows.length + (rows.length === 1 ? ' record' : ' records');
+      badge.style.display = 'inline';
+
+      const fmtAmount = val => {
+        const n = parseFloat(val);
+        if (isNaN(n)) return val;
+        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      };
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Scholarship</th>
+              <th>Year</th>
+              <th class="right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+      rows.forEach(row => {
+        html += `
+            <tr>
+              <td>${escHtml(row.scholarshipName || '—')}</td>
+              <td class="muted">${escHtml(row.awardYear || '—')}</td>
+              <td class="right">${fmtAmount(row.awardAmount)}</td>
+            </tr>`;
+      });
+
+      html += `</tbody></table>`;
+      content.innerHTML = html;
+    }
+
+    // ── Fetch from Power Automate flow ────────────────────────────────────────
+    async function loadScholarships(lookupID) {
+      try {
+        const res = await fetch(FLOW_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ RE_LookupID: lookupID })
+        });
+
+        if (!res.ok) throw new Error('Flow returned ' + res.status);
+
+        const data = await res.json();
+
+        // Power Automate Respond action wraps output in body object
+        const raw = data?.scholarshipData ?? data?.schlarshipdata ?? data;
+        const rows = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+        renderTable(rows);
+
+      } catch (err) {
+        document.getElementById('content').innerHTML =
+          '<div class="state error">Could not load scholarship data.<br>' + err.message + '</div>';
+      }
+    }
+
+    // ── Escape HTML ───────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    (function init() {
+      // Listen for SKY context message
+      window.addEventListener('message', function handler(e) {
+        if (e.data && e.data.envid) {
+          window.removeEventListener('message', handler);
+          loadScholarships(e.data.envid);
+        }
+      });
+
+      // Also try reading context directly (some SKY versions expose it immediately)
+      const id = getLookupID();
+      if (id) {
+        loadScholarships(id);
+      }
+    })();
+  </script>
+</body>
+</html>
