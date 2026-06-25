@@ -129,7 +129,7 @@
 
   <script>
     // ── Config ────────────────────────────────────────────────────────────────
-    const FLOW_URL = 'https://default0262e82232cc4173b32bdab3bcbb3c.84.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b21401d696eb4ce79f32bc6b8ba2497c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=odukJ7p5mi_5BDEg9mK3CACxxXM0XUf7YK0nb6QktCg';
+    const FLOW_URL = 'https://default0262e82232cc4173b32bdab3bcbb3c.84.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b21401d696eb4ce79f32bc6b8ba2497c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=odukJ7p5mi_5BDEg9mK3CACxxXM0XUf7YK0nb6QktCg'+ '&RE_SysID=' + encodeURIComponent(lookupID);
 
     // ── Get RE_LookupID from SKY Add-in context ───────────────────────────────
     function getLookupID() {
